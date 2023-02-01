@@ -1,6 +1,9 @@
 from operator import itemgetter
+from datetime import datetime
 
-from django_dynamic_fixture import G
+from django.utils.timezone import make_aware
+from django_dynamic_fixture import G, F
+from rest_framework.response import Response
 
 from test import APITestCase, AnyOrder, Any
 from ticket.models import Order, Event, TicketType
@@ -84,12 +87,15 @@ class EndpointsTest(APITestCase):
         not_enought_ticket_resp = self.client.post(
             "/api/orders", data={"ticket_type": self.ticket_type1.pk, "quantity": 2}
         )
-        successful_resp = self.client.post("/api/orders", data={"ticket_type": self.ticket_type2.pk, "quantity": 2})
+        successful_resp: Response = self.client.post("/api/orders",
+                                                     data={"ticket_type": self.ticket_type2.pk, "quantity": 2})
 
         self.assertEqual(not_enought_ticket_resp.status_code, 400)
         self.assertEqual(not_enought_ticket_resp.data, ["Couldn't book tickets"])
         self.assertEqual(successful_resp.status_code, 201)
-        self.assertEqual(successful_resp.data, {"id": Any(int), "ticket_type": self.ticket_type2.pk, "quantity": 2})
+        self.assertEqual(successful_resp.data,
+                         {"id": Any(int), "ticket_type": self.ticket_type2.pk, "quantity": 2, "fulfilled": True,
+                          "cancelled": False})
 
     def test_order_detail(self):
         user = self.authorize()
@@ -118,3 +124,18 @@ class EndpointsTest(APITestCase):
         self.assertCountEqual([order["id"] for order in resp.data], [order_a.pk, order_b.pk])
         self.assertEqual(no_order_resp.status_code, 200)
         self.assertEqual(no_order_resp.data, [])
+
+    def test_order_cancel(self):
+        user = self.authorize()
+        order: Order = G(Order, user=user, ticket_type=F(quantity=5, event=self.event), quantity=2)
+        outdated_order: Order = G(Order, user=user, ticket_type=F(quantity=4, event=self.event), quantity=2,
+                                  created_at=make_aware(datetime(2022, 2, 1, 0, 28, 0)))
+        outdated_order.book_tickets()
+        order.book_tickets()
+        successful_resp = self.client.post(f"/api/orders/{order.pk}/cancel")
+        failed_resp = self.client.post(f"/api/orders/{outdated_order.pk}/cancel")
+
+        self.assertEqual(failed_resp.status_code, 403)
+        self.assertEqual(failed_resp.data["detail"], "You can only cancel orders within 30 minutes of purchase")
+        self.assertEqual(successful_resp.status_code, 200)
+        self.assertEqual(successful_resp.data["cancelled"], True)

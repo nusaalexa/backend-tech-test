@@ -2,3 +2,5 @@ Django==2.2.6
 django-dynamic-fixture==2.0.0
 djangorestframework==3.10.3
 black
+python-dotenv~=0.21.1
+psycopg2-binary==2.8.6

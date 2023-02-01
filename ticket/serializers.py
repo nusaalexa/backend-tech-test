@@ -20,4 +20,4 @@ class EventSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Order
-        fields = ("id", "ticket_type", "quantity")
+        fields = ("id", "ticket_type", "quantity", "fulfilled", "cancelled")

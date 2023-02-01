@@ -1,3 +1,6 @@
+from datetime import datetime
+
+from django.utils.timezone import make_aware
 from django.test import TestCase
 from django_dynamic_fixture import G, F
 
@@ -39,6 +42,10 @@ class TicketTypeTest(TestCase):
 
 
 class OrderTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.event = G(Event)
+
     def test_book_tickets(self):
         order = G(Order, ticket_type=F(quantity=5), quantity=3)
 
@@ -51,3 +58,22 @@ class OrderTest(TestCase):
 
         self.assertEqual(pre_booking_ticket_count, 0)
         self.assertEqual(post_booking_ticket_count, 3)
+
+    def test_cancel_tickets(self):
+        ticket_type: TicketType = G(TicketType, name="Test", quantity=5, event=self.event)
+        outdated_order: Order = G(Order, ticket_type=ticket_type, quantity=2,
+                                  created_at=make_aware(datetime(2022, 2, 1, 0, 28, 0)))
+
+        with self.assertRaisesRegexp(Exception, r"You can only cancel orders within 30 minutes of purchase"):
+            outdated_order.book_tickets()
+            outdated_order.cancel_tickets()
+
+        order: Order = G(Order, ticket_type=ticket_type, quantity=2)
+
+        pre_booking_event_ticket_count = ticket_type.available_tickets().count()
+        order.book_tickets()
+        order.cancel_tickets()
+        post_cancel_event_ticket_count = ticket_type.available_tickets().count()
+
+        self.assertEqual(order.cancelled, True)
+        self.assertEqual(pre_booking_event_ticket_count, post_cancel_event_ticket_count)

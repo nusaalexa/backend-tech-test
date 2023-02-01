@@ -15,12 +15,16 @@ The API, so far, is pretty simple, frontend applications can :
 In order to make your head of product (and your customers - of course) happy, you have to build a new feature:
 The users should now have the possibility to cancel any order within 30 minutes of purchase.
 
+Solution vailable at: POST /api/orders/{order-id}/cancel
+
 ### Some metrics
 
 Because of this new feature, the financial controller is on the edge of their chair, wanting to know the impact it will have on the company's profits.
 In order to have a feel for it, he asked you to create a reusable piece of code to pull out two pieces of information:
    - The number of orders for a given event and its cancellation rate (as a percentage)
    - The date with the highest number of cancelled tickets (not orders! i.e: 1 order of 15 tickets > 14 orders of 1 ticket)
+
+Solution usage example: python manage.py analytics --t=1 --e='Event name' 
 
 
 ## Coding restrictions
